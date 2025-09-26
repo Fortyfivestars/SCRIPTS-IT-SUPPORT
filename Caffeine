@@ -1,0 +1,45 @@
+' Script "Caffeine" con duracion personalizable y soporte para decimales.
+
+Dim wshShell, strMinutes, dblMinutes, intTotalSeconds, i
+
+' Crea el objeto Shell para poder enviar pulsaciones de teclas.
+Set wshShell = CreateObject("WScript.Shell")
+
+' --- Pide al usuario que ingrese el tiempo en minutos ---
+strMinutes = InputBox("¿Durante cuantos minutos quieres mantener activo el PC?" & vbCrLf & vbCrLf & "(Puedes usar decimales, ej: 0.5 para 30 segundos)", "Caffeine VBS - Definir Tiempo", "60")
+
+' --- Validacion de la entrada del usuario ---
+' Si el usuario presiona "Cancelar" o deja el campo vacio, el script se cierra.
+If strMinutes = "" Then
+    WScript.Quit
+' Si el valor ingresado no es un numero o es cero/negativo, muestra un error y se cierra.
+' Se usa CDbl para permitir numeros con decimales.
+ElseIf Not IsNumeric(strMinutes) Or CDbl(strMinutes) <= 0 Then
+    MsgBox "Error: Debes ingresar un numero valido y mayor que cero.", 16, "Entrada Invalida"
+    WScript.Quit
+End If
+
+' --- Calculo del tiempo total de ejecucion ---
+' Convierte el texto a un numero decimal (Double).
+dblMinutes = CDbl(strMinutes)
+' Calcula el total de segundos que debe ejecutarse el script.
+intTotalSeconds = Round(dblMinutes * 60)
+
+' Muestra un mensaje de confirmacion al usuario.
+MsgBox "Caffeine' activado. El PC se mantendra activo durante " & dblMinutes & " minutos.", 64, "Caffeine VBS en Ejecucion"
+
+' --- Bucle principal que se ejecuta cada segundo ---
+For i = 1 To intTotalSeconds
+    ' Cada 59 segundos, envia una pulsacion de tecla para mantener el sistema activo.
+    If i Mod 59 = 0 Then
+        wshShell.SendKeys "{SCROLLLOCK}"
+        WScript.Sleep 100
+        wshShell.SendKeys "{SCROLLLOCK}"
+    End If
+    
+    ' Espera 1 segundo antes de la siguiente iteracion.
+    WScript.Sleep 1000
+Next
+
+' --- Muestra un mensaje final cuando el tiempo ha terminado ---
+MsgBox "El tiempo ha finalizado (" & dblMinutes & " minutos). El script ha terminado.", 64, "Caffeine VBS Finalizado"
