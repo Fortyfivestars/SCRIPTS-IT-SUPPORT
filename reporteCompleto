@@ -1,0 +1,138 @@
+' Crea los objetos necesarios para el sistema de archivos, red y WMI
+Set objFSO = CreateObject("Scripting.FileSystemObject")
+Set objShell = CreateObject("WScript.Shell")
+Set objNetwork = CreateObject("WScript.Network")
+strComputer = "."
+Set objWMIService = GetObject("winmgmts:\\" & strComputer & "\root\cimv2")
+
+' Obtiene la ruta del escritorio y define el nombre del archivo
+strDesktopPath = objShell.SpecialFolders("Desktop")
+strFilePath = strDesktopPath & "\ReporteCompleto.txt"
+
+' --- Recopilacion de Informacion del Sistema ---
+strSerialNumber = "Numero de Serie (Service Tag): " & GetSerialNumber()
+strModel = "Modelo de Equipo: " & GetModel()
+strOSVersion = "Sistema Operativo: " & GetOSVersion()
+strProcessor = "Procesador: " & GetProcessor()
+strRAM = "Memoria RAM: " & GetRAM() & " GB"
+strStorage = "Almacenamiento Total: " & GetStorage() & " GB"
+strComputerName = "Nombre del Equipo (Hostname): " & objNetwork.ComputerName
+strUserName = "Nombre de Usuario: " & objNetwork.UserName
+strDomain = "Dominio: " & GetDomain()
+strIPAddress = "Direccion IP: " & GetIPAddress()
+strMACAddress = "Direccion MAC: " & GetMACAddress()
+
+' --- Creacion del Archivo de Reporte ---
+Set objFile = objFSO.CreateTextFile(strFilePath, True)
+
+' Escribe la informacion en el archivo
+objFile.WriteLine("--- Reporte Completo del Equipo ---")
+objFile.WriteLine("Fecha: " & Date() & " " & Time())
+objFile.WriteLine("-----------------------------------")
+objFile.WriteLine(strModel)
+objFile.WriteLine(strSerialNumber)
+objFile.WriteLine(strOSVersion)
+objFile.WriteLine(strProcessor)
+objFile.WriteLine(strRAM)
+objFile.WriteLine(strStorage)
+objFile.WriteLine("-----------------------------------")
+objFile.WriteLine(strComputerName)
+objFile.WriteLine(strUserName)
+objFile.WriteLine(strDomain)
+objFile.WriteLine(strIPAddress)
+objFile.WriteLine(strMACAddress)
+objFile.Close ' Cierra el archivo
+
+' Muestra un mensaje al usuario para confirmar que el reporte fue creado
+MsgBox "Reporte 'ReporteCompleto.txt' creado exitosamente en tu Escritorio.", 64, "Proceso Completado"
+
+' --- Funciones para Obtener los Datos del Sistema ---
+
+Function GetSerialNumber()
+    On Error Resume Next
+    Set colItems = objWMIService.ExecQuery("SELECT * FROM Win32_BIOS")
+    For Each objItem in colItems
+        GetSerialNumber = objItem.SerialNumber
+        Exit For
+    Next
+End Function
+
+Function GetModel()
+    On Error Resume Next
+    Set colItems = objWMIService.ExecQuery("SELECT * FROM Win32_ComputerSystem")
+    For Each objItem in colItems
+        GetModel = objItem.Manufacturer & " " & objItem.Model
+        Exit For
+    Next
+End Function
+
+Function GetProcessor()
+    On Error Resume Next
+    Set colItems = objWMIService.ExecQuery("SELECT * FROM Win32_Processor")
+    For Each objItem in colItems
+        GetProcessor = objItem.Name
+        Exit For
+    Next
+End Function
+
+Function GetRAM()
+    On Error Resume Next
+    Set colItems = objWMIService.ExecQuery("SELECT * FROM Win32_ComputerSystem")
+    For Each objItem in colItems
+        GetRAM = Round(objItem.TotalPhysicalMemory / 1024 / 1024 / 1024, 2)
+        Exit For
+    Next
+End Function
+
+Function GetStorage()
+    On Error Resume Next
+    Dim totalSize: totalSize = 0
+    Set colItems = objWMIService.ExecQuery("SELECT * FROM Win32_LogicalDisk WHERE DriveType=3")
+    For Each objItem in colItems
+        totalSize = totalSize + objItem.Size
+    Next
+    GetStorage = Round(totalSize / 1024 / 1024 / 1024, 2)
+End Function
+
+Function GetOSVersion()
+    On Error Resume Next
+    Set colItems = objWMIService.ExecQuery("SELECT * FROM Win32_OperatingSystem")
+    For Each objItem in colItems
+        GetOSVersion = objItem.Caption
+        Exit For
+    Next
+End Function
+
+Function GetIPAddress()
+    On Error Resume Next
+    Set colItems = objWMIService.ExecQuery("SELECT * FROM Win32_NetworkAdapterConfiguration WHERE IPEnabled = True")
+    For Each objItem in colItems
+        If IsArray(objItem.IPAddress) Then
+            GetIPAddress = objItem.IPAddress(0)
+            Exit Function
+        End If
+    Next
+    GetIPAddress = "No encontrada"
+End Function
+
+Function GetMACAddress()
+    On Error Resume Next
+    Set colItems = objWMIService.ExecQuery("SELECT * FROM Win32_NetworkAdapterConfiguration WHERE IPEnabled = True")
+    For Each objItem in colItems
+        If Not IsNull(objItem.MACAddress) Then
+            GetMACAddress = objItem.MACAddress
+            Exit Function
+        End If
+    Next
+    GetMACAddress = "No encontrada"
+End Function
+
+' --- Nueva funcion para obtener el Dominio ---
+Function GetDomain()
+    On Error Resume Next
+    Set colItems = objWMIService.ExecQuery("SELECT * FROM Win32_ComputerSystem")
+    For Each objItem in colItems
+        GetDomain = objItem.Domain
+        Exit For
+    Next
+End Function
