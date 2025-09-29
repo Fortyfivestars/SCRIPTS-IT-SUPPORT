@@ -1,0 +1,159 @@
+Option Explicit
+
+Dim objFSO, objFile, objWMI, objShell
+Dim colItems, objItem
+Dim strComputer, strFileName, strOutput
+Dim intCount
+
+' Configuración inicial
+strComputer = "."
+strFileName = "inventario de programas de este equipo.txt"
+
+' Crear objetos necesarios
+Set objFSO = CreateObject("Scripting.FileSystemObject")
+Set objWMI = GetObject("winmgmts:\\" & strComputer & "\root\cimv2")
+Set objShell = CreateObject("WScript.Shell")
+
+' Crear archivo de salida en el escritorio
+strFileName = objShell.SpecialFolders("Desktop") & "\" & strFileName
+Set objFile = objFSO.CreateTextFile(strFileName, True)
+
+' Encabezado del reporte
+objFile.WriteLine "=================================================="
+objFile.WriteLine "     INVENTARIO DE APLICACIONES INSTALADAS"
+objFile.WriteLine "=================================================="
+objFile.WriteLine "Equipo: " & objShell.ExpandEnvironmentStrings("%COMPUTERNAME%")
+objFile.WriteLine "Usuario: " & objShell.ExpandEnvironmentStrings("%USERNAME%")
+objFile.WriteLine "Fecha: " & Now()
+objFile.WriteLine "=================================================="
+objFile.WriteLine ""
+
+' Mostrar mensaje de inicio
+WScript.Echo "Iniciando inventario de aplicaciones..." & vbCrLf & _
+"Por favor espere, esto puede tomar unos minutos..."
+
+intCount = 0
+
+' Consultar aplicaciones desde el registro (método principal)
+objFile.WriteLine "APLICACIONES INSTALADAS (desde Registro):"
+objFile.WriteLine "----------------------------------------"
+
+On Error Resume Next
+
+Set colItems = objWMI.ExecQuery("SELECT * FROM Win32_Product")
+
+For Each objItem in colItems
+If Not IsNull(objItem.Name) And objItem.Name <> "" Then
+intCount = intCount + 1
+objFile.WriteLine intCount & ". " & objItem.Name
+If Not IsNull(objItem.Version) And objItem.Version <> "" Then
+objFile.WriteLine "   Versión: " & objItem.Version
+End If
+If Not IsNull(objItem.Vendor) And objItem.Vendor <> "" Then
+objFile.WriteLine "   Fabricante: " & objItem.Vendor
+End If
+If Not IsNull(objItem.InstallDate) And objItem.InstallDate <> "" Then
+objFile.WriteLine "   Fecha de instalación: " & objItem.InstallDate
+End If
+objFile.WriteLine ""
+End If
+Next
+
+' Si no se encontraron aplicaciones con Win32_Product, intentar con el registro
+If intCount = 0 Then
+objFile.WriteLine "Buscando aplicaciones en el registro de Windows..."
+objFile.WriteLine ""
+
+Dim objReg, strKeyPath, arrSubKeys, strSubKey, strDisplayName, strVersion, strPublisher
+Const HKEY_LOCAL_MACHINE = &H80000002
+
+Set objReg = GetObject("winmgmts:\\" & strComputer & "\root\default:StdRegProv")
+
+' Buscar en programas de 64 bits
+strKeyPath = "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall"
+objReg.EnumKey HKEY_LOCAL_MACHINE, strKeyPath, arrSubKeys
+
+If IsArray(arrSubKeys) Then
+For Each strSubKey In arrSubKeys
+objReg.GetStringValue HKEY_LOCAL_MACHINE, strKeyPath & "\" & strSubKey, "DisplayName", strDisplayName
+
+If Not IsNull(strDisplayName) And strDisplayName <> "" Then
+intCount = intCount + 1
+objFile.WriteLine intCount & ". " & strDisplayName
+
+objReg.GetStringValue HKEY_LOCAL_MACHINE, strKeyPath & "\" & strSubKey, "DisplayVersion", strVersion
+If Not IsNull(strVersion) And strVersion <> "" Then
+objFile.WriteLine "   Versión: " & strVersion
+End If
+
+objReg.GetStringValue HKEY_LOCAL_MACHINE, strKeyPath & "\" & strSubKey, "Publisher", strPublisher
+If Not IsNull(strPublisher) And strPublisher <> "" Then
+objFile.WriteLine "   Fabricante: " & strPublisher
+End If
+
+objFile.WriteLine ""
+End If
+Next
+End If
+
+' Buscar en programas de 32 bits en sistemas de 64 bits
+strKeyPath = "SOFTWARE\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall"
+objReg.EnumKey HKEY_LOCAL_MACHINE, strKeyPath, arrSubKeys
+
+If IsArray(arrSubKeys) Then
+For Each strSubKey In arrSubKeys
+objReg.GetStringValue HKEY_LOCAL_MACHINE, strKeyPath & "\" & strSubKey, "DisplayName", strDisplayName
+
+If Not IsNull(strDisplayName) And strDisplayName <> "" Then
+intCount = intCount + 1
+objFile.WriteLine intCount & ". " & strDisplayName
+
+objReg.GetStringValue HKEY_LOCAL_MACHINE, strKeyPath & "\" & strSubKey, "DisplayVersion", strVersion
+If Not IsNull(strVersion) And strVersion <> "" Then
+objFile.WriteLine "   Versión: " & strVersion
+End If
+
+objReg.GetStringValue HKEY_LOCAL_MACHINE, strKeyPath & "\" & strSubKey, "Publisher", strPublisher
+If Not IsNull(strPublisher) And strPublisher <> "" Then
+objFile.WriteLine "   Fabricante: " & strPublisher
+End If
+
+objFile.WriteLine ""
+End If
+Next
+End If
+End If
+
+On Error GoTo 0
+
+' Resumen final
+objFile.WriteLine "=================================================="
+objFile.WriteLine "RESUMEN:"
+objFile.WriteLine "Total de aplicaciones encontradas: " & intCount
+objFile.WriteLine "Archivo generado: " & strFileName
+objFile.WriteLine "=================================================="
+
+' Cerrar archivo
+objFile.Close
+
+' Mensaje final y abrir archivo
+WScript.Echo "¡Inventario completado!" & vbCrLf & vbCrLf & _
+"Se encontraron " & intCount & " aplicaciones." & vbCrLf & _
+"El reporte se guardó en:" & vbCrLf & _
+strFileName & vbCrLf & vbCrLf & _
+"¿Desea abrir el archivo ahora?"
+
+Dim intResponse
+intResponse = MsgBox("¿Desea abrir el archivo de reporte ahora?", vbYesNo + vbQuestion, "Inventario Completado")
+
+If intResponse = vbYes Then
+objShell.Run "notepad.exe """ & strFileName & """"
+End If
+
+' Limpiar objetos
+Set objFile = Nothing
+Set objFSO = Nothing
+Set objWMI = Nothing
+Set objShell = Nothing
+
+WScript.Echo "Proceso finalizado."
