@@ -1,0 +1,119 @@
+Option Explicit
+
+' --- CONFIGURACIÓN ---
+' Define cuántos días hacia atrás quieres revisar. 30 = último mes.
+Const intDaysToScan = 30
+' -------------------
+
+Dim objShell, objFSO, objFile, objReg
+Dim strComputer, strDesktopPath, strFileName, strKeyPath, strDisplayName, strInstallDate
+Dim arrSubKeys, strSubKey, dtmInstallDate
+Dim intCount, totalCount
+
+' Crear objetos necesarios
+Set objShell = CreateObject("WScript.Shell")
+Set objFSO = CreateObject("Scripting.FileSystemObject")
+strComputer = "."
+Set objReg = GetObject("winmgmts:\\" & strComputer & "\root\default:StdRegProv")
+
+' Crear el diccionario de exclusiones
+Dim dictExclusions
+Set dictExclusions = CreateObject("Scripting.Dictionary")
+' Agrega aquí los programas que quieres ignorar SIEMPRE. Usa minúsculas.
+dictExclusions.Add "microsoft edge", ""
+dictExclusions.Add "microsoft visual c++", ""
+dictExclusions.Add "microsoft update health tools", ""
+dictExclusions.Add "microsoft office", ""
+dictExclusions.Add "google chrome", ""
+dictExclusions.Add "mozilla firefox", ""
+dictExclusions.Add "7-zip", ""
+
+
+' Crear archivo de salida en el escritorio
+strDesktopPath = objShell.SpecialFolders("Desktop")
+strFileName = strDesktopPath & "\Programas Instalados Recientemente.txt"
+Set objFile = objFSO.CreateTextFile(strFileName, True)
+
+' Encabezado del reporte
+objFile.WriteLine "=================================================="
+objFile.WriteLine "      PROGRAMAS INSTALADOS EN LOS ÚLTIMOS " & intDaysToScan & " DÍAS"
+objFile.WriteLine "=================================================="
+objFile.WriteLine "Equipo: " & objShell.ExpandEnvironmentStrings("%COMPUTERNAME%")
+objFile.WriteLine "Fecha del reporte: " & Now()
+objFile.WriteLine "==================================================" & vbCrLf
+
+WScript.Echo "Buscando programas instalados en los últimos " & intDaysToScan & " días..."
+
+intCount = 0
+
+' Llama a la subrutina para buscar en ambas ubicaciones del registro
+CheckRegistryKey "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall"
+CheckRegistryKey "SOFTWARE\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall"
+
+
+' Resumen final
+objFile.WriteLine "=================================================="
+objFile.WriteLine "Total de programas recientes encontrados: " & intCount
+objFile.WriteLine "=================================================="
+objFile.Close
+
+WScript.Echo "¡Reporte completado!" & vbCrLf & "Se encontraron " & intCount & " programas recientes."
+
+' Preguntar si se desea abrir el archivo
+If MsgBox("El reporte se ha guardado en tu escritorio." & vbCrLf & _
+          "¿Deseas abrirlo ahora?", vbYesNo + vbQuestion, "Proceso Finalizado") = vbYes Then
+    objShell.Run "notepad.exe """ & strFileName & """"
+End If
+
+' Limpiar objetos
+Set objShell = Nothing
+Set objFSO = Nothing
+Set objReg = Nothing
+Set dictExclusions = Nothing
+
+
+' --- Subrutina para procesar las claves del registro ---
+Sub CheckRegistryKey(keyPath)
+    objReg.EnumKey &H80000002, keyPath, arrSubKeys
+    If IsArray(arrSubKeys) Then
+        For Each strSubKey In arrSubKeys
+            ' Obtener el nombre del programa
+            objReg.GetStringValue &H80000002, keyPath & "\" & strSubKey, "DisplayName", strDisplayName
+            
+            If Not IsNull(strDisplayName) And Trim(strDisplayName) <> "" Then
+                ' Comprobar si está en la lista de exclusión
+                Dim isExcluded : isExcluded = False
+                Dim key
+                For Each key In dictExclusions.Keys
+                    If InStr(1, LCase(strDisplayName), key, 1) > 0 Then
+                        isExcluded = True
+                        Exit For
+                    End If
+                Next
+                
+                ' Excluir actualizaciones de Windows y componentes
+                If InStr(1, strDisplayName, "Update", 1) > 0 Or InStr(1, strDisplayName, "Security", 1) > 0 Then
+                    isExcluded = True
+                End If
+
+                If Not isExcluded Then
+                    ' Obtener la fecha de instalación
+                    objReg.GetStringValue &H80000002, keyPath & "\" & strSubKey, "InstallDate", strInstallDate
+                    
+                    If Not IsNull(strInstallDate) And Len(strInstallDate) = 8 Then
+                        On Error Resume Next
+                        dtmInstallDate = CDate(Mid(strInstallDate, 5, 2) & "/" & Mid(strInstallDate, 7, 2) & "/" & Mid(strInstallDate, 1, 4))
+                        If Err.Number = 0 Then
+                            ' Comprobar si la fecha está dentro del rango deseado
+                            If DateDiff("d", dtmInstallDate, Date) <= intDaysToScan Then
+                                intCount = intCount + 1
+                                objFile.WriteLine intCount & ". " & strDisplayName & " (Instalado el: " & FormatDateTime(dtmInstallDate, 2) & ")"
+                            End If
+                        End If
+                        On Error GoTo 0
+                    End If
+                End If
+            End If
+        Next
+    End If
+End Sub
