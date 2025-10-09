@@ -1,0 +1,37 @@
+$exclusiones = @(
+    "$env:SystemRoot\system32\config\systemprofile",
+    "$env:SystemRoot\ServiceProfiles\NetworkService",
+    "C:\Users\SOLVOSUP",
+    "C:\Users\~0000AEAdmin",
+    "C:\Users\j.zapatap"
+)
+ 
+Get-ChildItem "C:\Users" -Directory | ForEach-Object {
+    $ruta = $_.FullName
+    if (-not ($exclusiones -contains $ruta)) {
+        try {
+            Remove-Item -Path $ruta -Recurse -Force
+            Write-Host "Eliminado: $ruta"
+        } catch {
+            Write-Warning ("No se pudo eliminar {0}: {1}" -f $ruta, $_.Exception.Message)
+        }
+    } else {
+        Write-Host "Omitido (exclusión): $ruta"
+    }
+}
+ 
+ 
+$profileListPath = "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\ProfileList"
+Get-ChildItem $profileListPath | ForEach-Object {
+    $profilePath = $_.GetValue("ProfileImagePath")
+    if ($profilePath -and -not ($exclusiones -contains $profilePath)) {
+        try {
+            Remove-Item -Path $_.PSPath -Recurse -Force
+            Write-Host "Entrada de registro eliminada: $profilePath"
+        } catch {
+            Write-Warning ("No se pudo eliminar la entrada de registro: {0} - {1}" -f $profilePath, $_.Exception.Message)
+        }
+    } else {
+        Write-Host "Omitido (exclusión): $profilePath"
+    }
+}
