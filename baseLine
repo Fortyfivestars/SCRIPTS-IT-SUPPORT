@@ -1,0 +1,79 @@
+<#
+.SYNOPSIS
+    Genera un reporte de software específico instalado (Sin Admin).
+    Versión 3: Incluye Hostname y Usuario.
+#>
+
+function Get-InstalledSoftwareList {
+    # Definimos las rutas del registro donde Windows guarda los desinstaladores
+    $RegistryPaths = @(
+        "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*",
+        "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*",
+        "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*"
+    )
+
+    $InstalledApps = @()
+
+    # Recopilamos todo el software instalado visible
+    foreach ($Path in $RegistryPaths) {
+        $InstalledApps += Get-ItemProperty $Path -ErrorAction SilentlyContinue | Select-Object -ExpandProperty DisplayName -ErrorAction SilentlyContinue
+    }
+    return $InstalledApps
+}
+
+# --- DATOS DEL EQUIPO ---
+$ComputerName = $env:COMPUTERNAME
+$CurrentUser  = $env:USERNAME  # O usa 'whoami' si prefieres ver dominio/usuario
+
+Clear-Host
+Write-Host "==========================================" -ForegroundColor Cyan
+Write-Host "      REPORTE DE ESTADO DE SOFTWARE       " -ForegroundColor Cyan
+Write-Host "==========================================" -ForegroundColor Cyan
+Write-Host "🖥️  HOSTNAME : $ComputerName" -ForegroundColor White
+Write-Host "👤  USUARIO  : $CurrentUser" -ForegroundColor White
+Write-Host "==========================================`n" -ForegroundColor Cyan
+
+# --- EJECUCIÓN ---
+Write-Host "Escaneando registro de Windows..." -ForegroundColor Gray
+$SystemApps = Get-InstalledSoftwareList
+
+$Report = @()
+
+# Lista personalizada
+$CheckList = @(
+    # SOFTWARE DE SOLVO
+    [PSCustomObject]@{Category="SOLVO"; Name="Linea Base: Umbrella"; Pattern="*Umbrella*"},
+    [PSCustomObject]@{Category="SOLVO"; Name="Linea Base: Crowdstrike"; Pattern="*CrowdStrike*"},
+    [PSCustomObject]@{Category="SOLVO"; Name="Linea Base: Qualys"; Pattern="*Qualys*"},
+    [PSCustomObject]@{Category="SOLVO"; Name="Ivanti Agent"; Pattern="*Ivanti*"},
+    [PSCustomObject]@{Category="SOLVO"; Name="Microsoft Office 365"; Pattern="*Microsoft 365*"},
+    [PSCustomObject]@{Category="SOLVO"; Name="ActivTrak"; Pattern="*ActivTrak*"},
+    [PSCustomObject]@{Category="SOLVO"; Name="AutoElevate"; Pattern="*AutoElevate*"},
+    
+    # SOFTWARE DE LA CUENTA
+    [PSCustomObject]@{Category="CUENTA"; Name="Ivanti (Cuenta)"; Pattern="*Ivanti*"}
+)
+
+foreach ($Item in $CheckList) {
+    # Busca si algún software instalado coincide con el patrón
+    $Match = $SystemApps | Where-Object { $_ -like $Item.Pattern } | Select-Object -First 1
+    
+    $Status = "❌ No Encontrado"
+    if ($Match) {
+        # Limpiamos el nombre para que no sea tan largo en la tabla si es necesario
+        $Status = "✅ Instalado"
+    }
+
+    $Report += [PSCustomObject]@{
+        Grupo    = $Item.Category
+        Software = $Item.Name
+        Estado   = $Status
+        Detalle  = if ($Match) { $Match } else { "-" } # Columna extra para ver el nombre real detectado
+    }
+}
+
+# Mostrar tabla en consola
+$Report | Format-Table -AutoSize
+
+Write-Host "Nota: Word, Excel y PowerPoint se incluyen en 'Microsoft Office 365'." -ForegroundColor Yellow
+Write-Host "`n--- FIN DEL REPORTE ---" -ForegroundColor Cyan
