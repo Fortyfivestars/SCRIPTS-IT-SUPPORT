@@ -1,0 +1,72 @@
+<#
+.SYNOPSIS
+    Genera un reporte de software agrupado por fila.
+    Incluye Hostname, Usuario y dirección IP (Referencia VLAN).
+#>
+
+# 1. OBTENER DATOS DEL SISTEMA Y RED
+$ComputerName = $env:COMPUTERNAME
+$CurrentUser  = $env:USERNAME
+
+# Obtenemos la IP del adaptador principal (con salida a internet)
+try {
+    $IPAddress = (Get-NetIPConfiguration -ErrorAction SilentlyContinue | Where-Object { $_.IPv4DefaultGateway -ne $null } | Select-Object -First 1).IPv4Address.IPAddress
+} catch {
+    $IPAddress = "No detectada"
+}
+
+# 2. FUNCIÓN PARA LEER REGISTRO
+function Get-InstalledSoftwareList {
+    $RegistryPaths = @(
+        "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*",
+        "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*",
+        "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*"
+    )
+    $InstalledApps = @()
+    foreach ($Path in $RegistryPaths) {
+        $InstalledApps += Get-ItemProperty $Path -ErrorAction SilentlyContinue | Select-Object -ExpandProperty DisplayName -ErrorAction SilentlyContinue
+    }
+    return $InstalledApps
+}
+
+$SystemApps = Get-InstalledSoftwareList
+
+# 3. LISTA DE SOFTWARE A VALIDAR
+$CheckList = @(
+    # SOFTWARE DE SOLVO
+    [PSCustomObject]@{Category="SOLVO"; Name="Linea Base: Umbrella"; Pattern="*Umbrella*"},
+    [PSCustomObject]@{Category="SOLVO"; Name="Linea Base: Crowdstrike"; Pattern="*CrowdStrike*"},
+    [PSCustomObject]@{Category="SOLVO"; Name="Linea Base: Qualys"; Pattern="*Qualys*"},
+    [PSCustomObject]@{Category="SOLVO"; Name="Ivanti Agent"; Pattern="*Ivanti*"},
+    [PSCustomObject]@{Category="SOLVO"; Name="Microsoft Office 365"; Pattern="*Microsoft 365*"},
+    [PSCustomObject]@{Category="SOLVO"; Name="ActivTrak"; Pattern="*ActivTrak*"},
+    [PSCustomObject]@{Category="SOLVO"; Name="AutoElevate"; Pattern="*AutoElevate*"},
+    
+    # SOFTWARE DE LA CUENTA
+    [PSCustomObject]@{Category="CUENTA"; Name="Ivanti (Cuenta)"; Pattern="*Ivanti*"}
+)
+
+$Report = @()
+
+# 4. GENERAR REPORTE UNIFICADO
+foreach ($Item in $CheckList) {
+    $Match = $SystemApps | Where-Object { $_ -like $Item.Pattern } | Select-Object -First 1
+    
+    $Status = "NO INSTALADO"
+    if ($Match) {
+        $Status = "OK"
+    }
+
+    $Report += [PSCustomObject]@{
+        PC_Name   = $ComputerName
+        Usuario   = $CurrentUser
+        IP_Vlan   = $IPAddress
+        Grupo     = $Item.Category
+        Software  = $Item.Name
+        Estado    = $Status
+    }
+}
+
+# 5. MOSTRAR TABLA
+Clear-Host
+$Report | Format-Table PC_Name, Usuario, IP_Vlan, Grupo, Software, Estado -AutoSize
