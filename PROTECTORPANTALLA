@@ -1,0 +1,39 @@
+@echo off
+title FSOCIETY_ROOT_CONSOLE
+color 02
+mode 1000
+
+:: --- INTRODUCCIÓN ESTILO MR. ROBOT ---
+cls
+echo.
+echo  INITIATING HANDSHAKE...
+timeout /t 1 >nul
+echo  [+] CONNECTING TO E CORP SERVERS...
+timeout /t 2 >nul
+echo  [+] BYPASSING FIREWALL (PORT 443)...
+timeout /t 1 >nul
+echo  [+] ROOT ACCESS GRANTED.
+echo.
+echo  ----------------------------------
+echo      _     _ _       
+echo     ^| ^|   ^| ^| ^|      
+echo     ^| ^|__ ^| ^| ^| ___  
+echo     ^| '_ \^| ^| ^|/ _ \ 
+echo     ^| ^|_) ^| ^| ^| (_) ^|
+echo     ^|_.__/^|_^|_^|\___/ 
+echo          friend.
+echo  ----------------------------------
+echo.
+echo  ESTABLISHING SECURE CONNECTION...
+timeout /t 3 >nul
+cls
+
+:: --- MODO MATRIX / CASCADA ---
+:: Cambiamos a verde brillante para el efecto matrix
+color 0a
+
+:matrix
+:: Esta línea genera números aleatorios rápidos para simular código cayendo
+echo %random%%random%%random%%random%%random%%random%%random%%random%%random%%random%%random%%random%%random%%random%%random%%random%
+echo %random%%random%%random%%random%%random%%random%%random%%random%%random%%random%%random%%random%%random%%random%%random%%random%
+goto matrix
