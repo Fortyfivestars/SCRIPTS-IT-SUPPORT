@@ -1,0 +1,16 @@
+# Definir la ruta temporal y el enlace de Dropbox con el parámetro dl=1 para descarga directa
+$url = "https://www.dropbox.com/scl/fi/j5a3hvwz2v4acnqqwgbg7/SOLMXUniversidad_Agent-1.exe?rlkey=hj2dxxl0meepw1q5bhlo2p328&st=daf4ic3k&dl=1"
+$tempPath = "$env:TEMP\Agente_Endpoint.exe"
+
+Write-Host "Iniciando descarga de Endpoint Central..." -ForegroundColor Cyan
+
+# Descargar el instalador
+Invoke-WebRequest -Uri $url -OutFile $tempPath
+
+# Ejecutar la instalación silenciosa y esperar a que termine
+Write-Host "Instalando agente en modo silencioso..." -ForegroundColor Yellow
+Start-Process -FilePath $tempPath -ArgumentList "/silent" -Wait
+
+# Limpiar el archivo temporal
+Remove-Item $tempPath
+Write-Host "Instalacion finalizada correctamente." -ForegroundColor Green
