@@ -1,0 +1,72 @@
+# =========================================================
+# SCRIPT DE LIMPIEZA DE PERFILES - MODO AGRESIVO (FORCE)
+# =========================================================
+# OBJETIVO: Eliminar perfiles desbloqueando archivos en uso.
+# EXCLUYE: SOLVOSUP y cuentas críticas.
+# =========================================================
+
+# 1. Configuración de Seguridad
+$CuentasProtegidas = @("SOLVOSUP", "Administrator", "Administrador", "Public", "Default", $env:USERNAME)
+
+# Verificar permisos de Admin
+if (!([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
+    Write-Host " [ERROR] NECESITAS EJECUTAR ESTO COMO ADMINISTRADOR" -ForegroundColor Red
+    Start-Sleep 5
+    Exit
+}
+
+# 2. Obtener perfiles
+$Perfiles = Get-CimInstance -Class Win32_UserProfile | Where-Object { $_.Special -eq $false }
+
+foreach ($perfil in $Perfiles) {
+    # Obtener nombre real del usuario desde la ruta (ej. C:\Users\Juan -> Juan)
+    $NombreUsuario = $perfil.LocalPath.Split('\')[-1]
+    $SID = $perfil.SID
+
+    # 3. Verificar Exclusiones
+    if ($CuentasProtegidas -contains $NombreUsuario) {
+        Write-Host "[PROTEGIDO] $NombreUsuario se mantiene a salvo." -ForegroundColor Gray
+    }
+    else {
+        Write-Host "`n[OBJETIVO DETECTADO] Usuario: $NombreUsuario" -ForegroundColor Yellow
+        
+        # --- PASO 1: DESBLOQUEAR ARCHIVOS (MATAR PROCESOS) ---
+        Write-Host "   -> Cerrando procesos activos para liberar archivos..." -ForegroundColor Cyan
+        try {
+            # Taskkill busca procesos corriendo bajo ese nombre de usuario y los fuerza (/F) a cerrar
+            taskkill /F /FI "USERNAME eq $NombreUsuario" 2>$null | Out-Null
+            Start-Sleep -Seconds 2 # Dar tiempo al sistema para soltar los archivos
+        } catch {}
+
+        # --- PASO 2: INTENTO DE BORRADO LIMPIO (WMI) ---
+        Write-Host "   -> Intentando borrado estándar..." -NoNewline
+        try {
+            $perfil | Remove-CimInstance -ErrorAction Stop
+            Write-Host " EXITO." -ForegroundColor Green
+        }
+        catch {
+            Write-Host " FALLO." -ForegroundColor Red
+            
+            # --- PASO 3: MODO NUCLEAR (BORRADO MANUAL SI FALLA LO ANTERIOR) ---
+            Write-Host "   -> [MODO FORCE] Ejecutando limpieza manual de registro y disco..." -ForegroundColor Magenta
+            
+            # A. Borrar clave del registro (Esto hace que Windows olvide que el usuario existía)
+            $RegPath = "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\ProfileList\$SID"
+            if (Test-Path $RegPath) {
+                Remove-Item -Path $RegPath -Recurse -Force -ErrorAction SilentlyContinue
+                Write-Host "      -> Registro limpiado."
+            }
+
+            # B. Borrar carpeta del disco a la fuerza
+            if (Test-Path $perfil.LocalPath) {
+                # Intentamos tomar control y borrar
+                Remove-Item -Path $perfil.LocalPath -Recurse -Force -ErrorAction SilentlyContinue
+                Write-Host "      -> Archivos eliminados."
+            }
+            
+            Write-Host "   -> Perfil eliminado forzosamente." -ForegroundColor Green
+        }
+    }
+}
+
+Write-Host "`n--- LIMPIEZA FINALIZADA ---" -ForegroundColor Cyan
