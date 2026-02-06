@@ -1,3 +1,6 @@
+# Forzar codificación para que se vean los acentos correctamente
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+
 $reporte = & {
     $bios = Get-CimInstance Win32_BIOS
     $cs = Get-CimInstance Win32_ComputerSystem
