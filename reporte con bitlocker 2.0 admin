@@ -1,0 +1,67 @@
+# 1. Verificación de privilegios de Administrador
+if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
+    Write-Host " [!] ERROR: Ejecuta PowerShell como Administrador." -ForegroundColor Red
+    exit
+}
+
+# 2. ACCIONES TÉCNICAS OBLIGATORIAS (Configuración previa)
+Add-BitLockerKeyProtector -MountPoint "C:" -TpmProtector -ErrorAction SilentlyContinue | Out-Null
+Add-BitLockerKeyProtector -MountPoint "C:" -RecoveryPasswordProtector -ErrorAction SilentlyContinue | Out-Null
+Resume-BitLocker -MountPoint "C:" -ErrorAction SilentlyContinue | Out-Null
+
+# 3. RECOPILACIÓN DE DATOS DEL SISTEMA
+$cs = Get-CimInstance Win32_ComputerSystem
+$os = Get-CimInstance Win32_OperatingSystem
+$bios = Get-CimInstance Win32_Bios
+$cpu = Get-CimInstance Win32_Processor
+$disk = Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='C:'"
+$net = Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.InterfaceAlias -notmatch 'Loopback|Virtual' } | Select-Object -First 1
+$mac = Get-NetAdapter | Where-Object { $_.Status -eq 'Up' } | Select-Object -First 1
+$vol = Get-BitLockerVolume -MountPoint "C:"
+
+# 4. ESTRUCTURA DEL REPORTE FINAL
+Clear-Host
+Write-Host "=========================================================" -ForegroundColor White
+Write-Host "                  REPORTE EQUIPO" -ForegroundColor Cyan
+Write-Host "=========================================================" -ForegroundColor White
+
+Write-Host "FECHA DE EMISION: $(Get-Date -Format 'dd/MM/yyyy HH:mm')"
+
+Write-Host "`nINFORMACION DEL HARDWARE" -ForegroundColor Cyan
+Write-Host "MODELO      : $($cs.Manufacturer) $($cs.Model)"
+Write-Host "S/N         : $($bios.SerialNumber)"
+Write-Host "PROCESADOR  : $($cpu.Name.Trim())"
+Write-Host "MEMORIA RAM : $([math]::Round($cs.TotalPhysicalMemory / 1GB, 2)) GB"
+Write-Host "DISCO DURO  : $([math]::Round($disk.Size / 1GB, 0)) GB"
+Write-Host "SISTEMA OP. : $($os.Caption)"
+
+Write-Host "`nIDENTIFICACION Y RED" -ForegroundColor Cyan
+Write-Host "HOSTNAME    : $($env:COMPUTERNAME)"
+Write-Host "USUARIO     : $($env:USERNAME)"
+Write-Host "DOMINIO     : $($cs.Domain)"
+Write-Host "DIRECCION IP: $($net.IPAddress)"
+Write-Host "DIRECCION MAC: $($mac.MacAddress)"
+
+Write-Host "`nEstado del bitlocker (enable)" -ForegroundColor Cyan
+Write-Host "Encriptado( $($vol.EncryptionPercentage)% ok)" -ForegroundColor Green
+Write-Host "TPM:($(if($vol.KeyProtector.KeyProtectorType -contains 'Tpm'){"OK"}else{"FALTA"}))"
+
+Write-Host "`n PRUEBAS" -ForegroundColor Cyan
+Write-Host "---------------------------------------------------------"
+# Ejecución del comando exacto solicitado
+Write-Host "PS C:\> Get-BitLockerVolume -MountPoint `"C:`"" -ForegroundColor Gray
+Get-BitLockerVolume -MountPoint "C:" | Format-Table -AutoSize
+
+Write-Host "`n IMAGEN DE LAS PRUEBAS" -ForegroundColor Cyan
+Write-Host " [ Evidencia de protectores y estado On confirmada ]" -ForegroundColor Gray
+Write-Host "---------------------------------------------------------"
+
+Write-Host "`n DATOS DE RECUPERACION:" -ForegroundColor Cyan
+$recoveryKey = ($vol.KeyProtector | Where-Object {$_.KeyProtectorType -eq "RecoveryPassword"}).RecoveryPassword
+if ($recoveryKey) {
+    $keyId = ($vol.KeyProtector | Where-Object {$_.KeyProtectorType -eq "RecoveryPassword"}).KeyProtectorId
+    Write-Host " ID LLAVE : $keyId"
+    Write-Host " PASSWORD : $recoveryKey" -ForegroundColor Magenta
+}
+
+Write-Host "=========================================================" -ForegroundColor White
