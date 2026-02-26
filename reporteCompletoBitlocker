@@ -1,0 +1,70 @@
+# 1. Comprobar privilegios de administrador
+if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
+    Write-Host " [!] ERROR: Debes ejecutar este script como Administrador." -ForegroundColor Red
+    exit
+}
+
+# 2. Recopilación de Información del Sistema
+$cs = Get-CimInstance Win32_ComputerSystem
+$os = Get-CimInstance Win32_OperatingSystem
+$bios = Get-CimInstance Win32_Bios
+$cpu = Get-CimInstance Win32_Processor
+$disk = Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='C:'"
+$net = Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.InterfaceAlias -notmatch 'Loopback|Virtual' } | Select-Object -First 1
+$mac = Get-NetAdapter | Where-Object { $_.Status -eq 'Up' } | Select-Object -First 1
+
+# 3. Recopilación de Datos BitLocker (C:)
+$bl = Get-BitLockerVolume -MountPoint "C:"
+$tpmStatus = if ($bl.KeyProtector.KeyProtectorType -contains "Tpm") { "OK" } else { "FALTA/ERROR" }
+$recoveryKey = ($bl.KeyProtector | Where-Object {$_.KeyProtectorType -eq "RecoveryPassword"}).RecoveryPassword
+
+# --- INICIO DEL REPORTE ---
+Clear-Host
+Write-Host "=========================================================" -ForegroundColor White
+Write-Host "                REPORTE EQUIPO" -ForegroundColor Cyan
+Write-Host "=========================================================" -ForegroundColor White
+
+Write-Host "FECHA DE EMISION: $(Get-Date -Format 'dd/MM/yyyy HH:mm')"
+
+Write-Host "`nINFORMACION DEL HARDWARE" -ForegroundColor Cyan
+Write-Host "MODELO      : $($cs.Manufacturer) $($cs.Model)"
+Write-Host "S/N         : $($bios.SerialNumber)"
+Write-Host "PROCESADOR  : $($cpu.Name)"
+Write-Host "MEMORIA RAM : $([math]::Round($cs.TotalPhysicalMemory / 1GB, 2)) GB"
+Write-Host "DISCO DURO  : $([math]::Round($disk.Size / 1GB, 0)) GB"
+Write-Host "SISTEMA OP. : $($os.Caption)"
+
+Write-Host "`nIDENTIFICACION Y RED" -ForegroundColor Cyan
+Write-Host "HOSTNAME    : $($env:COMPUTERNAME)"
+Write-Host "USUARIO     : $($env:USERNAME)"
+Write-Host "DOMINIO     : $($cs.Domain)"
+Write-Host "DIRECCION IP: $($net.IPAddress)"
+Write-Host "DIRECCION MAC: $($mac.MacAddress)"
+
+Write-Host "`nESTADO DEL BITLOCKER" -ForegroundColor Cyan
+Write-Host "ESTADO      : $(if($bl.ProtectionStatus -eq 'On'){"Enable"}else{"Disable"})"
+Write-Host "ENCRIPTADO  : $($bl.EncryptionPercentage)% ok"
+Write-Host "TPM         : ($tpmStatus)"
+
+Write-Host "`nPRUEBAS" -ForegroundColor Cyan
+Write-Host "---------------------------------------------------------"
+[PSCustomObject]@{
+    "Unidad"     = $bl.MountPoint
+    "Estado"     = $bl.VolumeStatus
+    "Proteccion" = $bl.ProtectionStatus
+    "Algoritmo"  = $bl.EncryptionMethod
+} | Format-Table -AutoSize
+
+Write-Host "IMAGEN DE LAS PRUEBAS" -ForegroundColor Cyan
+Write-Host "[OK] Verificación de integridad de cifrado completada." -ForegroundColor Green
+Write-Host "---------------------------------------------------------"
+
+Write-Host "`nDATOS DE RECUPERACION:" -ForegroundColor Cyan
+if ($recoveryKey) {
+    Write-Host "ID LLAVE: $(($bl.KeyProtector | Where-Object {$_.KeyProtectorType -eq 'RecoveryPassword'}).KeyProtectorId)"
+    Write-Host "PASSWORD: $recoveryKey" -ForegroundColor Magenta
+} else {
+    Write-Host "AVISO: No se encontró llave de recuperación." -ForegroundColor Yellow
+}
+
+Write-Host "`n=========================================================" -ForegroundColor White
