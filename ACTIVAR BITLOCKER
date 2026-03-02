@@ -1,0 +1,44 @@
+<#
+.SYNOPSIS
+    Script para activar protectores TPM, Recovery Password y reanudar BitLocker en C:
+    Requiere ejecución como Administrador.
+#>
+
+Write-Host "==========================================" -ForegroundColor Cyan
+Write-Host "    ACTIVACIÓN DE TPM Y BITLOCKER (C:)    " -ForegroundColor Cyan
+Write-Host "==========================================" -ForegroundColor Cyan
+
+# 1. Agregar protector de TPM
+Write-Host "1. Agregando protector TPM..." -ForegroundColor Gray
+try {
+    Add-BitLockerKeyProtector -MountPoint "C:" -TpmProtector -ErrorAction Stop
+    Write-Host "✅ Protector TPM añadido correctamente." -ForegroundColor Green
+} catch {
+    Write-Host "❌ Error al añadir TPM: $($_.Exception.Message)" -ForegroundColor Red
+}
+
+# 2. Agregar protector de Contraseña de Recuperación (Recovery Password)
+Write-Host "2. Agregando protector de Recuperación..." -ForegroundColor Gray
+try {
+    Add-BitLockerKeyProtector -MountPoint "C:" -RecoveryPasswordProtector -ErrorAction Stop
+    Write-Host "✅ Protector de Recuperación añadido correctamente." -ForegroundColor Green
+} catch {
+    Write-Host "❌ Error al añadir Recovery Password: $($_.Exception.Message)" -ForegroundColor Red
+}
+
+# 3. Cambiar estado de Off a On (Reanudar Cifrado)
+Write-Host "3. Cambiando estado de BitLocker a ON..." -ForegroundColor Gray
+try {
+    Resume-BitLocker -MountPoint "C:" -ErrorAction Stop
+    Write-Host "✅ BitLocker reanudado (Estado: ON)." -ForegroundColor Green
+} catch {
+    Write-Host "⚠️ No se pudo reanudar (puede que ya esté activo o falte preparación): $($_.Exception.Message)" -ForegroundColor Yellow
+}
+
+# 4. Verificación Final
+Write-Host "`n==========================================" -ForegroundColor Cyan
+Write-Host "           VERIFICACIÓN FINAL             " -ForegroundColor Cyan
+Write-Host "==========================================" -ForegroundColor Cyan
+Get-BitLockerVolume -MountPoint "C:" | Select-Object -ExpandProperty KeyProtector
+
+Write-Host "`n--- PROCESO FINALIZADO ---" -ForegroundColor Cyan
