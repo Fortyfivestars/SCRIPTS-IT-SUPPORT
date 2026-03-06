@@ -1,0 +1,31 @@
+# Definir la ruta temporal y la URL de Citrix (ajustada a dl=1 para descarga directa)
+$url = "https://www.dropbox.com/scl/fi/ael8i1b6pyrfbczohc4ax/CitrixReceiver.exe?rlkey=21rpfmo3abcw4r1ozvwt9la9z&st=xjkpm53i&dl=1"
+$tempPath = "$env:TEMP\CitrixReceiver.exe"
+
+Write-Host "Iniciando descarga de Citrix Receiver..." -ForegroundColor Cyan
+
+# Descargar el instalador
+try {
+    Invoke-WebRequest -Uri $url -OutFile $tempPath -ErrorAction Stop
+    Write-Host "Descarga completada." -ForegroundColor Green
+} catch {
+    Write-Host "Error al descargar Citrix: $($_.Exception.Message)" -ForegroundColor Red
+    break
+}
+
+# Ejecutar la instalación silenciosa de Citrix
+Write-Host "Instalando Citrix Receiver en modo silencioso..." -ForegroundColor Yellow
+
+<# 
+Nota técnica: Citrix Receiver suele usar /silent o /quiet. 
+Si necesitas que no se reinicie automáticamente, puedes agregar /noreboot 
+#>
+Start-Process -FilePath $tempPath -ArgumentList "/silent" -Wait
+
+# Limpiar el archivo temporal
+if (Test-Path $tempPath) {
+    Remove-Item $tempPath
+    Write-Host "Limpieza de archivos temporales completada." -ForegroundColor Gray
+}
+
+Write-Host "Instalación de Citrix finalizada correctamente." -ForegroundColor Green
