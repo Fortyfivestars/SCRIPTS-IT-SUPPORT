@@ -1,0 +1,31 @@
+# Definir la ruta temporal y la URL de Zoom (ajustada a dl=1 para descarga directa)
+$url = "https://www.dropbox.com/scl/fi/eiod6xrws6hrhujrhxbz8/ZoomInstaller.exe?rlkey=ybi24arbqv3vkxxcke4bfrb6g&st=eqie7ath&dl=1"
+$tempPath = "$env:TEMP\ZoomInstaller.exe"
+
+Write-Host "Iniciando descarga de Zoom..." -ForegroundColor Cyan
+
+# Descargar el instalador
+try {
+    Invoke-WebRequest -Uri $url -OutFile $tempPath -ErrorAction Stop
+    Write-Host "Descarga completada." -ForegroundColor Green
+} catch {
+    Write-Host "Error al descargar Zoom: $($_.Exception.Message)" -ForegroundColor Red
+    break
+}
+
+# Ejecutar la instalación silenciosa de Zoom
+Write-Host "Instalando Zoom en modo silencioso..." -ForegroundColor Yellow
+
+<# 
+Nota técnica: El instalador estándar de Zoom (.exe) utiliza el switch /silent.
+Si fuera el instalador MSI, se usaría /qn.
+#>
+Start-Process -FilePath $tempPath -ArgumentList "/silent" -Wait
+
+# Limpiar el archivo temporal
+if (Test-Path $tempPath) {
+    Remove-Item $tempPath
+    Write-Host "Limpieza de archivos temporales completada." -ForegroundColor Gray
+}
+
+Write-Host "Instalación de Zoom finalizada correctamente." -ForegroundColor Green
