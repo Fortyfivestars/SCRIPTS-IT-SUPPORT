@@ -1,27 +1,28 @@
-# Definir la ruta temporal y la URL de Zoom (ajustada a dl=1 para descarga directa)
-$url = "https://www.dropbox.com/scl/fi/eiod6xrws6hrhujrhxbz8/ZoomInstaller.exe?rlkey=ybi24arbqv3vkxxcke4bfrb6g&st=eqie7ath&dl=1"
-$tempPath = "$env:TEMP\ZoomInstaller.exe"
+# Definir la ruta temporal y la URL de Citrix Workspace (ajustada a dl=1 para descarga directa)
+$url = "https://www.dropbox.com/scl/fi/fo24e3alknu91s77thifd/CitrixWorkspaceApp.exe?rlkey=saqreb1j4cjp21dmc6es94y8g&st=oo91jxhu&dl=1"
+$tempPath = "$env:TEMP\CitrixWorkspaceApp.exe"
 
-Write-Host "Iniciando descarga de Zoom..." -ForegroundColor Cyan
+Write-Host "Iniciando descarga de Citrix Workspace App..." -ForegroundColor Cyan
 
 # Descargar el instalador
 try {
     Invoke-WebRequest -Uri $url -OutFile $tempPath -ErrorAction Stop
     Write-Host "Descarga completada." -ForegroundColor Green
 } catch {
-    Write-Host "Error al descargar Zoom: $($_.Exception.Message)" -ForegroundColor Red
+    Write-Host "Error al descargar Citrix Workspace: $($_.Exception.Message)" -ForegroundColor Red
     break
 }
 
-# Ejecutar la instalación silenciosa de Zoom
-Write-Host "Instalando Zoom en modo silencioso..." -ForegroundColor Yellow
+# Ejecutar la instalación silenciosa de Citrix Workspace
+Write-Host "Instalando Citrix Workspace en modo silencioso..." -ForegroundColor Yellow
 
 <# 
 Nota técnica: 
-Para el instalador EXE de Zoom: /silent es el estándar.
-Para el instalador MSI de Zoom: se usaría /qn /norestart.
+/silent: Instalación básica sin interfaz.
+/forceinstall: Útil si hay una versión antigua o corrupta que deba reemplazarse.
+/noreboot: Evita reinicios inesperados en el equipo del usuario.
 #>
-Start-Process -FilePath $tempPath -ArgumentList "/silent" -Wait
+Start-Process -FilePath $tempPath -ArgumentList "/silent /noreboot" -Wait
 
 # Limpiar el archivo temporal
 if (Test-Path $tempPath) {
@@ -29,4 +30,4 @@ if (Test-Path $tempPath) {
     Write-Host "Limpieza de archivos temporales completada." -ForegroundColor Gray
 }
 
-Write-Host "Instalación de Zoom finalizada correctamente." -ForegroundColor Green
+Write-Host "Instalación de Citrix Workspace finalizada correctamente." -ForegroundColor Green
