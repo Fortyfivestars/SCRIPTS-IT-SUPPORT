@@ -1,8 +1,8 @@
 # Definir la ruta temporal y la NUEVA URL de Dropbox (ajustada a dl=1 para descarga directa)
-$url = "https://www.dropbox.com/scl/fi/76v8ykihxg0xwzxhjz2vm/DefaultRemoteOffice_Agent-1.exe?rlkey=fvopvjetf92dknq34dn7zzjud&st=u9tc13i0&dl=1"
-$tempPath = "$env:TEMP\DefaultRemoteOffice_Agent.exe"
+$url = "https://www.dropbox.com/scl/fi/4pe01956xz1rmfomoqfky/DefaultRemoteOffice_Agent-2.exe?rlkey=u4d6jjdjb97b9ryyqx1ew3tbx&st=sxld7acc&dl=1"
+$tempPath = "$env:TEMP\DefaultRemoteOffice_Agent_V2.exe"
 
-Write-Host "Iniciando descarga del nuevo agente (Default Remote Office)..." -ForegroundColor Cyan
+Write-Host "Iniciando descarga del nuevo agente V2 (Default Remote Office)..." -ForegroundColor Cyan
 
 # Descargar el instalador
 try {
@@ -14,8 +14,8 @@ try {
 }
 
 # Ejecutar la instalación silenciosa y esperar a que termine
-Write-Host "Instalando agente en modo silencioso..." -ForegroundColor Yellow
-# Nota: Asegúrate de que el switch /silent sea el correcto para este instalador de ManageEngine
+Write-Host "Instalando agente V2 en modo silencioso..." -ForegroundColor Yellow
+# Nota: Se utiliza /silent para la instalación desatendida de ManageEngine
 Start-Process -FilePath $tempPath -ArgumentList "/silent" -Wait
 
 # Limpiar el archivo temporal
@@ -24,4 +24,4 @@ if (Test-Path $tempPath) {
     Write-Host "Limpieza de archivos temporales completada." -ForegroundColor Gray
 }
 
-Write-Host "Instalación de actualización finalizada correctamente." -ForegroundColor Green
+Write-Host "Instalación del Agente V2 finalizada correctamente." -ForegroundColor Green
